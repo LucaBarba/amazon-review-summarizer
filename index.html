@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amazon Review Summarizer — Multi-Model Benchmark</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;1,300&display=swap');
+
+  :root {
+    --bg:        #F7F5F0;
+    --surface:   #EDEAE3;
+    --border:    #D4CFC5;
+    --ink:       #1A1916;
+    --ink-muted: #7A766E;
+    --accent:    #2B5BCC;
+    --accent-lt: #EBF0FB;
+    --good:      #1A7A4A;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── Nav ── */
+  nav {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+  }
+  .nav-brand {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.3px;
+  }
+  .nav-links {
+    display: flex;
+    gap: 28px;
+    list-style: none;
+  }
+  .nav-links a {
+    font-size: 13px;
+    color: var(--ink-muted);
+    font-weight: 400;
+  }
+  .nav-links a:hover { color: var(--ink); text-decoration: none; }
+
+  /* ── Hero ── */
+  .hero {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 80px 40px 64px;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 300;
+    line-height: 1.15;
+    letter-spacing: -0.8px;
+    margin-bottom: 24px;
+    color: var(--ink);
+  }
+  .hero h1 strong { font-weight: 600; }
+  .hero-sub {
+    font-size: 17px;
+    font-weight: 300;
+    color: var(--ink-muted);
+    max-width: 600px;
+    margin-bottom: 36px;
+    line-height: 1.6;
+  }
+  .hero-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: opacity 0.15s;
+    border: none;
+  }
+  .btn:hover { opacity: 0.85; text-decoration: none; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--border); }
+
+  /* ── Main content ── */
+  .content {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 40px;
+  }
+
+  section {
+    padding: 64px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 12px;
+  }
+
+  h2 {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.4px;
+    margin-bottom: 16px;
+    line-height: 1.2;
+  }
+
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    margin-top: 28px;
+  }
+
+  p { margin-bottom: 16px; color: var(--ink); }
+  p:last-child { margin-bottom: 0; }
+
+  /* ── Results table ── */
+  .results-wrap {
+    overflow-x: auto;
+    margin: 28px 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead { background: var(--surface); }
+  th {
+    text-align: left;
+    padding: 10px 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--accent-lt); }
+  .model-name { font-weight: 600; font-family: var(--sans); font-size: 13px; }
+  .rank-1 { color: var(--good); font-weight: 600; }
+  .tag {
+    display: inline-block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-muted);
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  /* ── Pipeline steps ── */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+    margin-top: 28px;
+  }
+  .step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+  }
+  .step-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .step h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .step p {
+    font-size: 13px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* ── Models grid ── */
+  .models-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    margin-top: 28px;
+  }
+  .model-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px;
+  }
+  .model-card-id {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    margin-bottom: 8px;
+    word-break: break-all;
+  }
+  .model-card h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .model-card p { font-size: 13px; color: var(--ink-muted); margin: 0; line-height: 1.5; }
+  .model-type {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 3px;
+    margin-bottom: 8px;
+  }
+  .type-abstractive { background: var(--accent-lt); color: var(--accent); }
+  .type-extractive  { background: #EDF7F1; color: var(--good); }
+  .type-reference   { background: #F5F0FB; color: #6B3FA0; }
+
+  /* ── Metrics ── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+    margin-top: 28px;
+  }
+  .metric-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px;
+  }
+  .metric-card h4 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .metric-card p  { font-size: 13px; color: var(--ink-muted); margin: 0; line-height: 1.5; }
+  .metric-type {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 8px;
+  }
+
+  /* ── Code block ── */
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin: 20px 0;
+    color: var(--ink);
+  }
+  code { font-family: var(--mono); font-size: 12px; }
+
+  /* ── Findings ── */
+  .findings {
+    display: grid;
+    gap: 16px;
+    margin-top: 28px;
+  }
+  .finding {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .finding-num {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--border);
+    line-height: 1;
+    padding-top: 4px;
+  }
+  .finding h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .finding p  { font-size: 14px; color: var(--ink-muted); margin: 0; }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 40px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-muted);
+  }
+  footer a { color: var(--ink-muted); }
+
+  @media (max-width: 600px) {
+    nav { padding: 14px 20px; }
+    .hero, .content { padding-left: 20px; padding-right: 20px; }
+    .nav-links { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-brand">amazon-review-summarizer</span>
+  <ul class="nav-links">
+    <li><a href="#pipeline">Pipeline</a></li>
+    <li><a href="#models">Models</a></li>
+    <li><a href="#results">Results</a></li>
+    <li><a href="#setup">Setup</a></li>
+    <li><a href="https://github.com/BarbaDLuca/amazon-review-summarizer" target="_blank">GitHub</a></li>
+  </ul>
+</nav>
+
+<div class="hero">
+  <p class="hero-eyebrow">NLP Class Project &mdash; UnB PPGI 2026</p>
+  <h1>Multi-model benchmark for <strong>Amazon review summarization</strong></h1>
+  <p class="hero-sub">Comparing five abstractive Seq2Seq models against an extractive TF-IDF baseline across 400 products, evaluated with ROUGE, BERTScore, and sentiment alignment.</p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="https://github.com/BarbaDLuca/amazon-review-summarizer" target="_blank">
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      View on GitHub
+    </a>
+    <a class="btn btn-secondary" href="amazon_review_summarizer_local.ipynb" download>Download Notebook</a>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- Pipeline -->
+  <section id="pipeline">
+    <p class="section-label">How it works</p>
+    <h2>End-to-end pipeline</h2>
+    <p>The pipeline streams the Amazon Reviews 2023 dataset, selects 400 products from the <em>Toys &amp; Games</em> category, and runs each product through 8 review groups (overall, positive, negative, and each star rating) across all models. Every result is saved incrementally so the pipeline resumes automatically if interrupted.</p>
+
+    <div class="pipeline">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h4>Product Selection</h4>
+        <p>400 products sampled from the <code>BarbaDLuca/amazon-reviews-2023-with-asin</code> dataset via HuggingFace streaming. Fixed seed ensures reproducibility.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h4>Review Grouping</h4>
+        <p>Each product's reviews are split into 8 groups: overall, positive (4–5 stars), negative (1–2 stars), and individual star ratings.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h4>TF-IDF Medoid Selection</h4>
+        <p>For each group, the 15 most representative reviews are selected via TF-IDF cosine similarity, mitigating the <em>Lost in the Middle</em> problem.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <h4>Silver Reference Generation</h4>
+        <p><code>Qwen2.5-1.5B-Instruct</code> runs locally in FP16 to generate neutral consensus summaries used as pseudo-ground-truth references.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">05</div>
+        <h4>Multi-Model Summarization</h4>
+        <p>All 6 models (5 abstractive + 1 extractive baseline) generate summaries with beam search (4 beams), length penalty, and n-gram repetition blocking.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">06</div>
+        <h4>Evaluation</h4>
+        <p>ROUGE, BERTScore (batched, single model load), and VADER sentiment alignment computed across all 400 products and 8 groups.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Models -->
+  <section id="models">
+    <p class="section-label">Models</p>
+    <h2>What was benchmarked</h2>
+    <p>Five fine-tuned Seq2Seq summarization models from different training domains, one extractive baseline, and one LLM-generated silver reference.</p>
+
+    <div class="models-grid">
+      <div class="model-card">
+        <div class="type-abstractive model-type">Abstractive</div>
+        <div class="model-card-id">philschmid/bart-large-cnn-samsum</div>
+        <h4>BART-SamSum</h4>
+        <p>BART fine-tuned on SAMSum dialogue dataset. Best overall performer — dialogue training transfers well to informal review text.</p>
+      </div>
+      <div class="model-card">
+        <div class="type-abstractive model-type">Abstractive</div>
+        <div class="model-card-id">facebook/bart-large-cnn</div>
+        <h4>BART-CNN</h4>
+        <p>BART fine-tuned on CNN/DailyMail news. Strong baseline with formal, structured output.</p>
+      </div>
+      <div class="model-card">
+        <div class="type-abstractive model-type">Abstractive</div>
+        <div class="model-card-id">sshleifer/distilbart-cnn-12-6</div>
+        <h4>DistilBART</h4>
+        <p>Distilled version of BART-CNN. Competitive performance at ~60% of the size.</p>
+      </div>
+      <div class="model-card">
+        <div class="type-abstractive model-type">Abstractive</div>
+        <div class="model-card-id">google/pegasus-cnn_dailymail</div>
+        <h4>PEGASUS-CNN</h4>
+        <p>PEGASUS fine-tuned on CNN/DailyMail. Lowest performer — gap-sentence pretraining optimized for news compression transfers poorly to reviews.</p>
+      </div>
+      <div class="model-card">
+        <div class="type-abstractive model-type">Abstractive</div>
+        <div class="model-card-id">Falconsai/text_summarization</div>
+        <h4>Falconsai</h4>
+        <p>Compact general-purpose summarizer. Best sentiment alignment despite being the smallest model — preserves opinion polarity effectively.</p>
+      </div>
+      <div class="model-card">
+        <div class="type-extractive model-type">Extractive</div>
+        <div class="model-card-id">TF-IDF Medoid</div>
+        <h4>TF-IDF Baseline</h4>
+        <p>Selects 3 most representative sentences via cosine similarity. No generation — preserves original wording and sentiment faithfully.</p>
+      </div>
+      <div class="model-card">
+        <div class="type-reference model-type">Silver Reference</div>
+        <div class="model-card-id">Qwen/Qwen2.5-1.5B-Instruct</div>
+        <h4>Qwen2.5-1.5B</h4>
+        <p>Instruction-tuned LLM used to generate neutral consensus summaries as pseudo-ground-truth. Runs locally in FP16 on GPU.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section id="results">
+    <p class="section-label">Results</p>
+    <h2>Benchmark scores across 400 products</h2>
+    <p>Evaluated on the <em>overall</em> group (all reviews per product). ROUGE and BERTScore compare against Qwen-generated silver references. Sentiment alignment is reference-free, measured via VADER.</p>
+
+    <div class="results-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>ROUGE-1</th>
+            <th>ROUGE-2</th>
+            <th>ROUGE-L</th>
+            <th>BERTScore F1</th>
+            <th>Sentiment Align.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="model-name">Qwen2.5-1.5B</span><span class="tag">ref</span></td>
+            <td>1.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>0.9425</td>
+          </tr>
+          <tr>
+            <td><span class="model-name rank-1">BART-SamSum</span></td>
+            <td class="rank-1">0.3139</td><td class="rank-1">0.0615</td><td class="rank-1">0.1924</td><td class="rank-1">0.8725</td><td>0.8900</td>
+          </tr>
+          <tr>
+            <td><span class="model-name">BART-CNN</span></td>
+            <td>0.2938</td><td>0.0479</td><td>0.1743</td><td>0.8643</td><td>0.9225</td>
+          </tr>
+          <tr>
+            <td><span class="model-name">Falconsai</span></td>
+            <td>0.3036</td><td>0.0500</td><td>0.1687</td><td>0.8593</td><td class="rank-1">0.9575</td>
+          </tr>
+          <tr>
+            <td><span class="model-name">DistilBART</span></td>
+            <td>0.3006</td><td>0.0503</td><td>0.1777</td><td>0.8592</td><td>0.8700</td>
+          </tr>
+          <tr>
+            <td><span class="model-name">TF-IDF Extractive</span></td>
+            <td>0.2554</td><td>0.0428</td><td>0.1616</td><td>0.8608</td><td>0.9550</td>
+          </tr>
+          <tr>
+            <td><span class="model-name">PEGASUS-CNN</span></td>
+            <td>0.2368</td><td>0.0397</td><td>0.1553</td><td>0.8518</td><td>0.8200</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="findings">
+      <div class="finding">
+        <div class="finding-num">1</div>
+        <div>
+          <h4>Training domain matters more than model size</h4>
+          <p>BART-SamSum leads on ROUGE and BERTScore despite being architecturally identical to BART-CNN. Dialogue fine-tuning transfers better to informal review text than news fine-tuning.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-num">2</div>
+        <div>
+          <h4>Extractive models preserve sentiment better</h4>
+          <p>TF-IDF (0.955) and Falconsai (0.958) outperform larger abstractive models on sentiment alignment. Abstractive models smooth over strong opinions — a phenomenon called <em>abstractive smoothing</em>.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-num">3</div>
+        <div>
+          <h4>BERTScore gaps are narrow; ROUGE gaps are wide</h4>
+          <p>All models score within 0.022 BERTScore F1 of each other — they understand the content similarly. But ROUGE-2 varies 2.5x between best and worst, reflecting strong stylistic differences in word choice.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-num">4</div>
+        <div>
+          <h4>PEGASUS is the clear outlier</h4>
+          <p>Trained for extreme compression on news, PEGASUS produces the lowest scores across all metrics. Gap-sentence pretraining does not generalize to multi-document opinion summarization.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Metrics -->
+  <section id="metrics">
+    <p class="section-label">Evaluation</p>
+    <h2>How summaries are measured</h2>
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-type">Reference-based</div>
+        <h4>ROUGE-1 / 2 / L</h4>
+        <p>N-gram overlap between the generated summary and the Qwen silver reference. Strict lexical metric — penalizes paraphrase.</p>
+      </div>
+      <div class="metric-card">
+        <div class="metric-type">Reference-based</div>
+        <h4>BERTScore F1</h4>
+        <p>Semantic similarity via RoBERTa-large embeddings. Understands that "good" and "excellent" are similar — less sensitive to wording variation than ROUGE.</p>
+      </div>
+      <div class="metric-card">
+        <div class="metric-type">Reference-free</div>
+        <h4>Sentiment Alignment</h4>
+        <p>VADER classifies the majority polarity of source reviews and the summary. Measures whether the model preserves the overall opinion direction.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Setup -->
+  <section id="setup">
+    <p class="section-label">Getting started</p>
+    <h2>Run it locally</h2>
+    <p>Requires Python 3.11, a CUDA-capable GPU (6 GB+ VRAM recommended), and a HuggingFace account to access the dataset.</p>
+
+    <h3>1. Clone the repository</h3>
+    <pre>git clone https://github.com/BarbaDLuca/amazon-review-summarizer
+cd amazon-review-summarizer</pre>
+
+    <h3>2. Create and activate the virtual environment</h3>
+    <pre># Windows PowerShell
+python -m venv amazon_env
+.\amazon_env\Scripts\activate
+
+# macOS / Linux
+python3.11 -m venv amazon_env
+source amazon_env/bin/activate</pre>
+
+    <h3>3. Install dependencies</h3>
+    <pre># PyTorch with CUDA 12.1
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# Core dependencies
+pip install transformers==4.52.4 datasets==2.20.0 accelerate sentencepiece tiktoken
+pip install scikit-learn==1.3.2 nltk pandas==2.1.4 numpy==1.26.4 tqdm
+pip install rouge-score bert-score
+pip install ipykernel notebook
+
+# Register kernel
+python -m ipykernel install --user --name=amazon_env --display-name "Python (amazon_env)"</pre>
+
+    <h3>4. Launch and run</h3>
+    <pre>python -m jupyter notebook</pre>
+    <p>Open <code>amazon_review_summarizer_local.ipynb</code>, select the <strong>Python (amazon_env)</strong> kernel, paste your HuggingFace token into Cell 3, and run all cells sequentially.</p>
+
+    <h3>Hardware requirements</h3>
+    <p>Tested on an NVIDIA GTX 1660 Ti (6 GB VRAM). All models load in FP16. Expected runtime for a full run across all 400 products and 5 models: approximately 4–6 hours.</p>
+  </section>
+
+</div>
+
+<footer>
+  <p>Luca Delpino Barbabella &mdash; NLP Class Project, PPGI/UnB 2026 &mdash; <a href="https://github.com/BarbaDLuca">github.com/BarbaDLuca</a></p>
+</footer>
+
+</body>
+</html>
