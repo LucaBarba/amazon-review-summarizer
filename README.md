@@ -2,8 +2,6 @@
 
 NLP class project benchmarking five abstractive Seq2Seq summarization models against an extractive TF-IDF baseline across 400 Amazon products from the *Toys & Games* category.
 
-**[View project page](https://barbadjluca.github.io/amazon-review-summarizer)**
-
 ---
 
 ## Models
