@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Review Summarizer — Model Comparison</title>
+<style>
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --border:   #2a2d3a;
+    --accent:   #6c8fff;
+    --accent2:  #a78bfa;
+    --text:     #e2e4ef;
+    --muted:    #6b7080;
+    --good:     #4ade80;
+    --mid:      #facc15;
+    --bad:      #f87171;
+    --tag-bg:   #23273a;
+    --radius:   10px;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 28px 40px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  header h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+  header span {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+
+  /* ── Layout ── */
+  .shell {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: calc(100vh - 69px);
+  }
+
+  /* ── Sidebar ── */
+  aside {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-top {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .upload-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 9px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.15s;
+  }
+  .upload-btn:hover { opacity: 0.85; }
+
+  #file-status {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    font-family: var(--font-mono);
+  }
+
+  .search-wrap {
+    position: relative;
+  }
+  .search-wrap input {
+    width: 100%;
+    background: var(--tag-bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 8px 10px 8px 32px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-wrap svg {
+    position: absolute;
+    left: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.4;
+  }
+
+  .group-select {
+    width: 100%;
+    background: var(--tag-bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 8px 10px;
+    outline: none;
+    cursor: pointer;
+  }
+  .group-select:focus { border-color: var(--accent); }
+
+  .product-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 8px 0;
+  }
+  .product-list::-webkit-scrollbar { width: 4px; }
+  .product-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .product-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background 0.1s, border-color 0.1s;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .product-item:hover { background: var(--tag-bg); }
+  .product-item.active {
+    background: rgba(108, 143, 255, 0.08);
+    border-left-color: var(--accent);
+  }
+  .product-item .asin {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .product-item .review-count {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .empty-state {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  /* ── Main ── */
+  main {
+    overflow-y: auto;
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  main::-webkit-scrollbar { width: 4px; }
+  main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .no-selection {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 15px;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .no-selection svg { opacity: 0.3; }
+
+  /* ── Product header ── */
+  .product-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .product-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .product-header h2 span {
+    font-family: var(--font-mono);
+    color: var(--accent);
+  }
+  .tag {
+    background: var(--tag-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--muted);
+  }
+
+  /* ── Metrics table ── */
+  .metrics-section h3 {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .metrics-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .metrics-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .metrics-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .metrics-table tr:last-child td { border-bottom: none; }
+  .metrics-table tr:hover td { background: var(--tag-bg); }
+
+  .model-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  .bar-cell {
+    min-width: 120px;
+  }
+  .bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bar-bg {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+  .bar-val {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text);
+    width: 40px;
+    text-align: right;
+  }
+
+  /* ── Summaries grid ── */
+  .summaries-section h3 {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .summaries-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+  }
+
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color 0.15s;
+  }
+  .summary-card:hover { border-color: var(--accent); }
+  .summary-card.reference {
+    border-color: var(--accent2);
+    background: rgba(167, 139, 250, 0.05);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .card-model {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .summary-card.reference .card-model { color: var(--accent2); }
+
+  .card-scores {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .score-pill {
+    background: var(--tag-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .score-pill b { color: var(--text); }
+
+  .card-body {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.65;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+
+  /* ── Color scale ── */
+  .c-good  { color: var(--good); }
+  .c-mid   { color: var(--mid); }
+  .c-bad   { color: var(--bad); }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Review Summarizer</h1>
+  <span>Model Comparison Interface</span>
+</header>
+
+<div class="shell">
+  <aside>
+    <div class="sidebar-top">
+      <label class="upload-btn">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Load CSVs
+        <input type="file" id="file-input" accept=".csv" multiple style="display:none">
+      </label>
+      <div id="file-status">Load summaries.csv + evaluation_results.csv</div>
+
+      <div class="search-wrap">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search" placeholder="Search ASIN...">
+      </div >
+
+      <select class="group-select" id="group-select">
+        <option value="overall">Overall</option>
+        <option value="positive_4_5">Positive (4–5 ★)</option>
+        <option value="negative_1_2">Negative (1–2 ★)</option>
+        <option value="5_star">5 ★</option>
+        <option value="4_star">4 ★</option>
+        <option value="3_star">3 ★</option>
+        <option value="2_star">2 ★</option>
+        <option value="1_star">1 ★</option>
+      </select>
+    </div>
+
+    <div class="product-list" id="product-list">
+      <div class="empty-state">Load your CSVs to<br>browse products</div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div class="no-selection">
+      <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      Select a product to compare model outputs
+    </div>
+  </main>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let summaries = [];   // rows from summaries.csv
+let evalData  = [];   // rows from evaluation_results.csv
+let products  = [];   // unique ASINs
+let activeAsin = null;
+
+// CORREÇÃO: Alinhando chaves com underlines (compatível com a saída higienizada do Pandas)
+const MODELS_ORDER = [
+  'gemini-1.5-flash',
+  'facebook_bart-large-cnn',
+  'sshleifer_distilbart-cnn-12-6',
+  'google_pegasus-cnn_dailymail',
+  'philschmid_bart-large-cnn-samsum',
+  'Falconsai_text_summarization',
+  'extractive_tfidf',
+];
+
+const METRIC_COLS = ['bertscore_f1', 'rouge1_f', 'rouge2_f', 'rougeL_f', 'sentiment_alignment'];
+const METRIC_LABELS = {
+  bertscore_f1:       'BERTScore',
+  rouge1_f:           'ROUGE-1',
+  rouge2_f:           'ROUGE-2',
+  rougeL_f:           'ROUGE-L',
+  sentiment_alignment:'Sentiment',
+};
+
+// ── CSV Parser ─────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return [];
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  return lines.slice(1).map(line => {
+    const vals = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; continue; }
+      if (c === ',' && !inQ) { vals.push(cur); cur = ''; continue; }
+      cur += c;
+    }
+    vals.push(cur);
+    const row = {};
+    headers.forEach((h, i) => {
+      let val = (vals[i] || '').trim();
+      // Remove aspas sobressalentes internas se o campo foi encapsulado no CSV
+      if (val.startsWith('"') && val.endsWith('"')) {
+        val = val.substring(1, val.length - 1);
+      }
+      row[h] = val;
+    });
+    return row;
+  });
+}
+
+// ── File loading ───────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  const files = Array.from(e.target.files);
+  let loaded = 0;
+
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const rows = parseCSV(ev.target.result);
+      if (file.name.includes('evaluation') || file.name.includes('eval')) {
+        evalData = rows;
+      } else {
+        summaries = rows;
+      }
+      loaded++;
+      if (loaded === files.length) onDataReady();
+    };
+    reader.readAsText(file);
+  });
+});
+
+function onDataReady() {
+  products = [...new Set(summaries.map(r => r.asin))].filter(Boolean).sort();
+  document.getElementById('file-status').textContent =
+    `${products.length} products · ${summaries.length} summary rows`;
+  renderProductList(products);
+}
+
+// ── Product list ───────────────────────────────────────────────────────────
+document.getElementById('search').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase();
+  renderProductList(products.filter(a => a.toLowerCase().includes(q)));
+});
+
+document.getElementById('group-select').addEventListener('change', () => {
+  if (activeAsin) renderProduct(activeAsin);
+});
+
+function renderProductList(list) {
+  const el = document.getElementById('product-list');
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state">No products found</div>';
+    return;
+  }
+  el.innerHTML = list.map(asin => {
+    const rows = summaries.filter(r => r.asin === asin && r.group === 'overall');
+    const count = rows[0]?.review_count || '—';
+    return `
+      <div class="product-item ${asin === activeAsin ? 'active' : ''}" data-asin="${asin}">
+        <span class="asin">${asin}</span>
+        <span class="review-count">${count} reviews</span>
+      </div>`;
+  }).join('');
+
+  el.querySelectorAll('.product-item').forEach(item => {
+    item.addEventListener('click', () => {
+      activeAsin = item.dataset.asin;
+      el.querySelectorAll('.product-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      renderProduct(activeAsin);
+    });
+  });
+}
+
+// ── Main render ────────────────────────────────────────────────────────────
+function renderProduct(asin) {
+  const group = document.getElementById('group-select').value;
+  const main  = document.getElementById('main');
+
+  // Normaliza os IDs de modelo para garantir compatibilidade se houver barras residuais
+  const sanitizeKey = k => String(k).replace(/\//g, '_');
+
+  // Get summaries for this product + group
+  const sumRows = summaries.filter(r => r.asin === asin && r.group === group);
+  // Get eval rows for this product + group
+  const evRows  = evalData.filter(r => r.asin === asin && r.group === group);
+
+  // Build model → summary map
+  const sumMap  = {};
+  sumRows.forEach(r => sumMap[sanitizeKey(r.model)] = r.summary);
+
+  // Build model → metrics map
+  const evalMap = {};
+  evRows.forEach(r => evalMap[sanitizeKey(r.model)] = r);
+
+  // Order models
+  const modelsPresent = MODELS_ORDER.filter(m => sumMap[m]);
+
+  if (!modelsPresent.length) {
+    main.innerHTML = `
+      <div class="no-selection">
+        <h3>No data available for ASIN ${asin} under group "${group}"</h3>
+        <p style="color:var(--muted); font-size:13px;">Check if the selected filter exists in your data.</p>
+      </div>`;
+    return;
+  }
+
+  // Max values per metric for bar scaling
+  const maxMetric = {};
+  METRIC_COLS.forEach(col => {
+    const vals = modelsPresent
+      .map(m => parseFloat(evalMap[m]?.[col]))
+      .filter(v => !isNaN(v));
+    maxMetric[col] = Math.max(...vals) || 1;
+  });
+
+  // ── Metrics table ──
+  const metricsHTML = modelsPresent.map(model => {
+    const ev = evalMap[model] || {};
+
+    const cells = METRIC_COLS.map(col => {
+      const val = parseFloat(ev[col]);
+      if (isNaN(val)) return `<td class="bar-cell"><span style="color:var(--muted)">—</span></td>`;
+      const pct   = (val / (maxMetric[col] || 1)) * 100;
+      const color = val >= 0.85 ? '#6c8fff' : val >= 0.7 ? '#a78bfa' : '#6b7080';
+      const cls   = val >= 0.85 ? 'c-good' : val >= 0.7 ? 'c-mid' : '';
+      return `
+        <td class="bar-cell">
+          <div class="bar-wrap">
+            <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+            <span class="bar-val ${cls}">${val.toFixed(3)}</span>
+          </div>
+        </td>`;
+    }).join('');
+
+    // Rótulos limpos para exibição na tabela de métricas
+    const modelLabel = model === 'extractive_tfidf' ? 'TF-IDF Extractive'
+      : model === 'gemini-1.5-flash' ? 'Qwen2.5-1.5B (ref.) ★'
+      : model === 'google_pegasus-cnn_dailymail' ? 'Google Pegasus'
+      : model === 'facebook_bart-large-cnn' ? 'BART Large CNN'
+      : model === 'sshleifer_distilbart-cnn-12-6' ? 'DistilBART 12-6'
+      : model === 'philschmid_bart-large-cnn-samsum' ? 'BART SAMSum'
+      : model === 'Falconsai_text_summarization' ? 'Falconsai Text'
+      : model;
+
+    return `
+      <tr>
+        <td><span class="model-name">${modelLabel}</span></td>
+        ${cells}
+      </tr>`;
+  }).join('');
+
+  // ── Summary cards ──
+  const cardsHTML = modelsPresent.map(model => {
+    const summary = sumMap[model] || '[no summary]';
+    const ev      = evalMap[model] || {};
+    const isRef   = model === 'gemini-1.5-flash';
+
+    const pills = METRIC_COLS.map(col => {
+      const val = parseFloat(ev[col]);
+      if (isNaN(val)) return '';
+      return `<span class="score-pill">${METRIC_LABELS[col]} <b>${val.toFixed(3)}</b></span>`;
+    }).filter(Boolean).join('');
+
+    // Rótulos limpos para os cabeçalhos dos cartões
+    const modelShort = model === 'extractive_tfidf' ? 'TF-IDF Extractive'
+      : model === 'gemini-1.5-flash' ? 'Qwen2.5-1.5B (silver reference)'
+      : model === 'google_pegasus-cnn_dailymail' ? 'Google Pegasus'
+      : model === 'facebook_bart-large-cnn' ? 'Facebook BART Large'
+      : model === 'sshleifer_distilbart-cnn-12-6' ? 'DistilBART 12-6'
+      : model === 'philschmid_bart-large-cnn-samsum' ? 'BART SAMSum (Fine-tuned)'
+      : model === 'Falconsai_text_summarization' ? 'Falconsai Summarizer'
+      : model;
+
+    return `
+      <div class="summary-card ${isRef ? 'reference' : ''}">
+        <div class="card-header">
+          <span class="card-model">${modelShort}</span>
+        </div>
+        <div class="card-scores">${pills || '<span style="color:var(--muted);font-size:11px">No metrics for this tier</span>'}</div>
+        <div class="card-body">${summary}</div>
+      </div>`;
+  }).join('');
+
+  main.innerHTML = `
+    <div class="product-header">
+      <h2>Product <span>${asin}</span></h2>
+      <span class="tag">${group.replace(/_/g, ' ')}</span>
+    </div>
+
+    <div class="metrics-section">
+      <h3>Metric Comparison</h3>
+      <table class="metrics-table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            ${METRIC_COLS.map(c => `<th>${METRIC_LABELS[c]}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>${metricsHTML}</tbody>
+      </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="summaries-section">
+      <h3>Generated Summaries</h3>
+      <div class="summaries-grid">${cardsHTML}</div>
+    </div>
+  `;
+}
+</script>
+</body>
+</html>
